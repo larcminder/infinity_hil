@@ -27,6 +27,9 @@ MainWindow::MainWindow(QWidget *parent)
     ui->dInCh1->setDisabled(1);
 
     serial = new QSerialPort(this);
+
+    QObject::connect(this, SIGNAL(new_command_available(QString)),
+                     this, SLOT(analyzeCommand(QString)));
 }
 
 MainWindow::~MainWindow()
@@ -114,7 +117,7 @@ void MainWindow::serialReceived() {
                 rxMessage = splitted[i];
                 rxMessage.append('#');
                 //qDebug() << "RX:" << rxMessage;
-                analyzeCommand(rxMessage);
+                emit new_command_available(rxMessage);
             }
             rxMessage = splitted[splitted.length()-1];
 
@@ -122,17 +125,6 @@ void MainWindow::serialReceived() {
                 rxMessage = "NULL";
             }
         }
-        /*
-        if (splitted.length() > 1) {
-            rxMessage = splitted[0];
-            rxMessage.append('#');
-            qDebug() << "RX:" << rxMessage;
-            analyzeCommand(rxMessage);
-            rxMessage = splitted[1];
-            if (rxMessage == "") {
-                rxMessage = "NULL";
-            }
-        }*/
     }
 }
 
@@ -149,6 +141,11 @@ void MainWindow::analyzeCommand(QString command) {
         }
     }
     else if (command.at(1) == 'd') {
+        QString hex = command.at(2);
+        int dec = hex.toUInt();
+        if (dec%16 == 1) {
+            //set highest input
+        }
         //set digital inputs
     }
 }

@@ -48,6 +48,9 @@ private slots:
 
     void terminal(QString text);
 
+signals:
+    void new_command_available(QString command);
+
 private:
     Ui::MainWindow *ui;
     QString rxMessage = "NULL";

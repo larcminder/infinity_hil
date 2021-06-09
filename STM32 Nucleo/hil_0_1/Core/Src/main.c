@@ -383,21 +383,6 @@ void digitalRead(uint8_t *buf, int lenght) {
 	//uint8_t i2c_buffer[2] = {};
 	HAL_I2C_Master_Transmit(&hi2c1, D_IN_ADDR, 0x00, 1, 10);
 	HAL_I2C_Master_Receive(&hi2c1, D_IN_ADDR, buf, 2, 10);
-	//uint16_t data = (i2c_buffer[1] << 8) + i2c_buffer[0];
-	//return i2c_buffer;
-	/*
-	uint16_t mask = 0x01;
-	for (int i = 0; i < pin; i++) {
-		mask << pin;	//Maske erstellen
-	}
-	if (data & mask) {	//Prüfe, ob Bit gesetzt
-		return 1;
-	}
-	else {
-		return 0;
-	}
-	*/
-
 }
 
 /* USER CODE END 4 */
