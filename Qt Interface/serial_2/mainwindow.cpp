@@ -8,6 +8,7 @@
 #include <QPlainTextEdit>
 #include <QTextEdit>
 #include <QObject>
+#include <QTimer>
 
 QSerialPort *serial;
 
@@ -17,24 +18,36 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    serialBuffer = "";
-    //QString currentConnection = "";
+    list_COM_devices();
+
+    ui->aInCh1Text->insert(QString::number(0));
+    ui->aOutCh1Text->insert(QString::number(0));
+
+    ui->dInCh1->setDisabled(1);
+    ui->dInCh1->setDisabled(1);
+
+    serial = new QSerialPort(this);
+
+    QObject::connect(this, SIGNAL(new_command_available(QString)),
+                     this, SLOT(analyzeCommand(QString)));
+}
+
+MainWindow::~MainWindow()
+{
+    on_pushButtonDicsconnect_clicked();
+    delete ui;
+    serial->close();
+}
+
+/*** COM ***********************************************************************************/
+void MainWindow::list_COM_devices() {
     QList<QSerialPortInfo> list;
     list = QSerialPortInfo::availablePorts();
 
     for(int i =0; i<list.length(); i++){
         ui->comboBoxPortSelect->addItem(list[i].portName());
     }
-
-    serial = new QSerialPort(this);
 }
-
-MainWindow::~MainWindow()
-{
-    delete ui;
-    serial->close();
-}
-
 
 void MainWindow::on_pushButtonConnect_clicked()
 {
@@ -67,32 +80,107 @@ void MainWindow::on_pushButtonConnect_clicked()
 
 }
 
-void MainWindow::on_txButton_clicked()
-{
-    QString msg = ui->txLine->text();
+void MainWindow::transmit(QString msg) {
+    ack = 0;
+    ui->rxText->append("Tx: " + msg + "");
+    msg.prepend('*');
+    msg.append('#');
+    qDebug() << "TX:" << msg;
     QByteArray inBytes;
     const char *cStrData;
     inBytes = msg.toUtf8();
     cStrData = inBytes.constData();
     QString qtStrData;
     qtStrData = QString::fromUtf8(cStrData);
+    //qDebug() << qtStrData;
     serial->write(cStrData);
-    ui->rxText->append("Sent: " + msg + "");
-    ui->txLine->clear();
-
+    serial->waitForBytesWritten();
 }
 
 void MainWindow::serialReceived() {
 
-    serialData = serial->readAll();
-    serialBuffer = serialBuffer + QString::fromStdString(serialData.toStdString());
-    serialData.clear();
-    qDebug() << "Buffer: " << serialBuffer;
-
-    if (serialBuffer.length() >= 4){
-        ui->rxText->append("Received: " + serialBuffer + "");
-        serialBuffer.remove(0,4);
+    QByteArray serialData = serial->readAll();
+    QString tmp = QString::fromStdString(serialData.toStdString());
+    //qDebug() << "recieved:" << tmp;
+    if (tmp == "") {}
+    else if (tmp.at(0) == '*') {
+        rxMessage.clear();
+        rxMessage.append(tmp);
     }
+    else if (rxMessage.at(0) == '*') {
+        rxMessage.append(tmp);
+
+        if (rxMessage.contains('#') == true) {
+            QStringList splitted = rxMessage.split('#');
+            qDebug() << "List" << splitted;
+            for (int i = 0; i < (splitted.length()-1); i++) {
+                rxMessage = splitted[i];
+                rxMessage.append('#');
+                //qDebug() << "RX:" << rxMessage;
+                emit new_command_available(rxMessage);
+            }
+            rxMessage = splitted[splitted.length()-1];
+
+            if (rxMessage == "") {
+                rxMessage = "NULL";
+            }
+        }
+    }
+}
+
+void MainWindow::analyzeCommand(QString command) {
+    if (command.at(1) == 'p') {
+        command.remove(0,2);
+        command.chop(1);
+        ui->rxText->append("Rx: " + command);
+    }
+    else if (command.at(1) == 'a') {
+        ui->rxText->append("Nucleo confirmed!");
+        if (scriptStarted == 1) {
+            nextLine(scriptCurrentRow);
+        }
+    }
+    else if (command.at(1) == 'd') {
+        QString hex = command.at(2);
+        int dec = hex.toUInt();
+        if (dec%16 == 1) {
+            //set highest input
+        }
+        //set digital inputs
+    }
+}
+
+/*** Script and other backgroud stuff **************************************/
+
+void MainWindow::nextLine(int i) {
+    auto item = ui->commandTable->item(i,0);
+    if (!item) {
+        scriptStarted = 0;
+        terminal("Found empty cell, terminate script!");
+        return;
+    }
+    QString cellText = item->text();
+    transmit(cellText);
+    if (i >= (ui->commandTable->rowCount() - 1)) {
+        scriptStarted = 0;
+        terminal("Script done!");
+    }
+    else {
+        scriptCurrentRow++;
+    }
+}
+
+void MainWindow::terminal(QString text) {
+    ui->rxText->append(text);
+}
+
+/*** Buttons and UI ********************************************************/
+
+void MainWindow::on_txButton_clicked()
+{
+    QString message = ui->txLine->text();
+    transmit(message);
+    ui->txLine->clear();
 }
 
 void MainWindow::on_txLine_returnPressed()
@@ -103,12 +191,54 @@ void MainWindow::on_txLine_returnPressed()
 void MainWindow::on_pushButtonDicsconnect_clicked()
 {
     if(serial->isOpen()){
+        QByteArray serialData = serial->readAll();
+        serialData.clear();
         serial->close(); //    Close the serial port if it's open.
-        serialBuffer = "";
-        serialData = "";
+        rxMessage = "NULL";
         ui->rxText->append("Closed connection");
     }else{
         ui->rxText->append("No open connection to be closed");
     }
 }
 
+void MainWindow::on_aOutCh1Slider_valueChanged(int value)
+{
+    int aOutCh1 = value;
+    QString str = QString::number(aOutCh1);
+    ui->aOutCh1Text->clear();
+    ui->aOutCh1Text->insert(str);
+    ui->aInCh1Text->clear();
+    ui->aInCh1Text->insert(str);
+    ui->aInCh1Progress->setValue(value);
+}
+
+void MainWindow::on_dOutCh1_toggled(bool checked)
+{
+    //int dOutCh1 = checked;
+    ui->dInCh1->setEnabled(1);
+    ui->dInCh1->setChecked(checked);
+    ui->dInCh1->setDisabled(1);
+}
+
+void MainWindow::on_skr_addline_button_clicked()
+{
+    ui->commandTable->insertRow(ui->commandTable->rowCount());
+}
+
+void MainWindow::on_skr_removeLine_button_clicked()
+{
+    ui->commandTable->removeRow(ui->commandTable->rowCount() - 1);
+}
+
+void MainWindow::on_skr_start_button_clicked()
+{
+    scriptStarted = 1;
+    scriptCurrentRow = 0;
+    ui->rxText->append("Start running script...");
+    nextLine(scriptCurrentRow);
+}
+
+void MainWindow::on_pushButtonRefresh_clicked()
+{
+    list_COM_devices();
+}
