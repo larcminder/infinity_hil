@@ -36,8 +36,6 @@ private slots:
 
     void on_aOutCh1Slider_valueChanged(int value);
 
-    void on_dOutCh1_toggled(bool checked);
-
     void on_skr_addline_button_clicked();
 
     void on_skr_removeLine_button_clicked();
@@ -48,6 +46,38 @@ private slots:
 
     void terminal(QString text);
 
+    void on_dOutCh0_0_toggled(bool checked);
+
+    void on_dOutCh0_1_toggled(bool checked);
+
+    void on_dOutCh0_2_toggled(bool checked);
+
+    void on_dOutCh0_3_toggled(bool checked);
+
+    void on_dOutCh0_4_toggled(bool checked);
+
+    void on_dOutCh0_5_toggled(bool checked);
+
+    void on_dOutCh0_6_toggled(bool checked);
+
+    void on_dOutCh0_7_toggled(bool checked);
+
+    void on_dOutCh1_0_toggled(bool checked);
+
+    void on_dOutCh1_1_toggled(bool checked);
+
+    void on_dOutCh1_2_toggled(bool checked);
+
+    void on_dOutCh1_3_toggled(bool checked);
+
+    void on_dOutCh1_4_toggled(bool checked);
+
+    void on_dOutCh1_5_toggled(bool checked);
+
+    void on_dOutCh1_6_toggled(bool checked);
+
+    void on_dOutCh1_7_toggled(bool checked);
+
 signals:
     void new_command_available(QString command);
 
@@ -57,5 +87,9 @@ private:
     int ack = 0;
     int scriptStarted = 0;
     int scriptCurrentRow = 0;
+    uint8_t digital_input_high_byte = 0;
+    uint8_t digital_input_low_byte = 0;
+    uint8_t digital_output_high_byte = 0;
+    uint8_t digital_output_low_byte = 0;
 };
 #endif // MAINWINDOW_H

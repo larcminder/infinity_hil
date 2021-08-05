@@ -25,7 +25,6 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <string.h>
-#include <comm_handler.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -35,6 +34,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define adress_out 0x20
+#define adress_in 0x28
 
 /* USER CODE END PD */
 
@@ -71,10 +72,7 @@ char txBuf[10];
 int uart_buf_pos = 0;
 uint8_t UART_command[30];
 
-static uint8_t D_IN_ADDR = 0x00 << 1;
-static uint8_t D_OUT_ADDR = 0x00 << 1;
-static uint8_t A_IN_ADDR = 0x00 << 1;
-static uint8_t A_OUT_ADDR = 0x00 << 1;
+uint8_t input[2] = {};
 
 /* USER CODE END PV */
 
@@ -89,7 +87,6 @@ void StartTask02(void *argument);
 
 /* USER CODE BEGIN PFP */
 void transmit(char[]);
-void digitalRead(uint8_t*, int);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -130,10 +127,11 @@ int main(void)
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   HAL_UART_Receive_DMA(&huart2, UART_rxBuffer, 1);
+
   //Set up all I2C Devices:
   //Digital Input: Set all to input
   uint8_t i2c_buffer[3] = {0x06,0x00,0x00};
-  HAL_I2C_Master_Transmit(&hi2c1, D_IN_ADDR, i2c_buffer, 3, 10);
+  HAL_I2C_Master_Transmit(&hi2c1, (uint16_t) adress_out, i2c_buffer, 3, 1000);
 
 
   /* USER CODE END 2 */
@@ -345,6 +343,8 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+// DMA-Interrupt nach empfangenem ASCII-Zeichen (muss noch gekürzt werden)
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	if (UART_rxBuffer[0] == '*') {
 		uart_buf_pos = 0;
@@ -379,21 +379,9 @@ void transmit(char msg[30]) {
 	HAL_UART_Transmit(&huart2, (uint8_t *)msgTarget, len, 500);
 }
 
-void digitalRead(uint8_t *buf, int lenght) {
-	//uint8_t i2c_buffer[2] = {};
-	HAL_I2C_Master_Transmit(&hi2c1, D_IN_ADDR, 0x00, 1, 10);
-	HAL_I2C_Master_Receive(&hi2c1, D_IN_ADDR, buf, 2, 10);
-}
-
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_StartTask01 */
-/**
-  * @brief  Function implementing the task01 thread.
-  * @param  argument: Not used
-  * @retval None
-  */
-/* USER CODE END Header_StartTask01 */
+//Analysiert den UART Befehl, sobald dieser vorliegt
 void StartTask01(void *argument)
 {
   /* USER CODE BEGIN 5 */
@@ -402,7 +390,55 @@ void StartTask01(void *argument)
   {
 	  int delay = 1;
 	  if (UART_command[0] == '*') {
-		  delay = analyzeCommand(UART_command);
+
+		  if (UART_command[1] == 'a') {				//Analog IOs
+			  transmit("pDo something with the Analog IOs");
+		  }
+
+		  else if (UART_command[1] == 'd') {		//Digital IOs
+			  if (UART_command[2] == 'w') {				//Digital Out
+				  uint8_t data[3] = {0x02, UART_command[3], UART_command[4]};
+				  HAL_I2C_Master_Transmit(&hi2c1, (uint16_t) adress_in, data, 3, 100);
+				  transmit("pWrite to a Digital Pin");
+			  }
+			  /*
+			  else if (UART_command[2] == 'r') {		//Digital In
+				  transmit("pRead from a Digital Pin");
+			  }
+			  */
+			  else {
+				  transmit("pInvalid Command");
+			  }
+		  }
+
+		  else if (UART_command[1] == 't') {		//Timer Signal
+			  transmit("pDo something with the Timer");
+		  }
+
+		  else if (UART_command[1] == 'c') {		//CAN Bus
+			  transmit("pDo something with the CAN Bus");
+		  }
+
+		  else if (UART_command[1] == 'p') {		//Echo zurück an Qt
+			  transmit(UART_command);
+		  }
+
+		  else if (UART_command[1] == 'w') {		//Warte für übermittelte Zeit
+			  char hexArray[2] = {UART_command[2], UART_command[3]};
+			  delay = strtol(hexArray, NULL, 16) * 100;
+			  char msg[30];
+			  sprintf(msg, "pDelay by %i ms", delay);
+			  transmit(msg);
+			  break;
+		  }
+
+		  else {
+			  transmit("pInvalid Command Identifier");
+		  }
+
+
+
+		  //Lösche Befehl nach Ausführung
 		  for (int i = 0; i < 30; i++) {
 			  UART_command[i] = 0;
 		  }
@@ -430,12 +466,20 @@ void StartTask02(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  uint8_t digi[2] = {0b11111111,0b10101010};
+	  //uint8_t digi[2] = {};
 	  //digitalRead(digi, 2);
-	  char msg[3] = {'d',0,0};
-	 msg[1] = digi[0];
-	 msg[2] = digi[1];
+	  //char msg[3] = {'d',2,127};
+	  //msg[1] = digi[0];
+	  //msg[2] = digi[1];
+	  //transmit(msg);
+
+	  //Read from digital In
+	  uint8_t input[2] = {};
+	  HAL_I2C_Master_Transmit(&hi2c1, (uint16_t) adress_in, 0x00, 1, 100);
+	  HAL_I2C_Master_Receive(&hi2c1, (uint16_t) adress_in, input, 2, 100);
+	  char msg[3] = {'d',input[0], input[1]};
 	  transmit(msg);
+
 	  osDelay(100);
   }
   /* USER CODE END StartTask02 */

@@ -9,6 +9,7 @@
 #include <QTextEdit>
 #include <QObject>
 #include <QTimer>
+#include <QtMath>
 
 QSerialPort *serial;
 
@@ -23,8 +24,23 @@ MainWindow::MainWindow(QWidget *parent)
     ui->aInCh1Text->insert(QString::number(0));
     ui->aOutCh1Text->insert(QString::number(0));
 
-    ui->dInCh1->setDisabled(1);
-    ui->dInCh1->setDisabled(1);
+    //Alle Inputs nicht selektierbar schalten
+    ui->dInCh0_0->setDisabled(1);
+    ui->dInCh0_1->setDisabled(1);
+    ui->dInCh0_2->setDisabled(1);
+    ui->dInCh0_3->setDisabled(1);
+    ui->dInCh0_4->setDisabled(1);
+    ui->dInCh0_5->setDisabled(1);
+    ui->dInCh0_6->setDisabled(1);
+    ui->dInCh0_7->setDisabled(1);
+    ui->dInCh1_0->setDisabled(1);
+    ui->dInCh1_1->setDisabled(1);
+    ui->dInCh1_2->setDisabled(1);
+    ui->dInCh1_3->setDisabled(1);
+    ui->dInCh1_4->setDisabled(1);
+    ui->dInCh1_5->setDisabled(1);
+    ui->dInCh1_6->setDisabled(1);
+    ui->dInCh1_7->setDisabled(1);
 
     serial = new QSerialPort(this);
 
@@ -32,6 +48,7 @@ MainWindow::MainWindow(QWidget *parent)
                      this, SLOT(analyzeCommand(QString)));
 }
 
+//Aufruf beim Schließen des Fensters
 MainWindow::~MainWindow()
 {
     on_pushButtonDicsconnect_clicked();
@@ -39,7 +56,8 @@ MainWindow::~MainWindow()
     serial->close();
 }
 
-/*** COM ***********************************************************************************/
+/*** Communication ***********************************************************************************/
+//Liste alle COM Schnittstellen
 void MainWindow::list_COM_devices() {
     QList<QSerialPortInfo> list;
     list = QSerialPortInfo::availablePorts();
@@ -49,6 +67,7 @@ void MainWindow::list_COM_devices() {
     }
 }
 
+//Verbinde mit dem Nucleo
 void MainWindow::on_pushButtonConnect_clicked()
 {
     if(!(serial->isOpen())) {
@@ -80,6 +99,7 @@ void MainWindow::on_pushButtonConnect_clicked()
 
 }
 
+//Send String via USART
 void MainWindow::transmit(QString msg) {
     ack = 0;
     ui->rxText->append("Tx: " + msg + "");
@@ -97,6 +117,7 @@ void MainWindow::transmit(QString msg) {
     serial->waitForBytesWritten();
 }
 
+//Wird aufgerufen, wenn neue Zeichen vom USART kommen
 void MainWindow::serialReceived() {
 
     QByteArray serialData = serial->readAll();
@@ -128,6 +149,7 @@ void MainWindow::serialReceived() {
     }
 }
 
+//Decodieren des fertigen Befehls
 void MainWindow::analyzeCommand(QString command) {
     if (command.at(1) == 'p') {
         command.remove(0,2);
@@ -141,12 +163,27 @@ void MainWindow::analyzeCommand(QString command) {
         }
     }
     else if (command.at(1) == 'd') {
-        QString hex = command.at(2);
-        int dec = hex.toUInt();
-        if (dec%16 == 1) {
-            //set highest input
-        }
-        //set digital inputs
+        uint8_t lowByte = (command.at(2)).unicode();
+        uint8_t highByte = (command.at(3)).unicode();
+        qDebug() << lowByte << "  " << highByte;
+        ui->dInCh0_0->setChecked(lowByte & 0b00000001);
+        ui->dInCh0_1->setChecked(lowByte & 0b00000010);
+        ui->dInCh0_2->setChecked(lowByte & 0b00000100);
+        ui->dInCh0_3->setChecked(lowByte & 0b00001000);
+        ui->dInCh0_4->setChecked(lowByte & 0b00010000);
+        ui->dInCh0_5->setChecked(lowByte & 0b00100000);
+        ui->dInCh0_6->setChecked(lowByte & 0b01000000);
+        ui->dInCh0_7->setChecked(lowByte & 0b10000000);
+
+        ui->dInCh1_0->setChecked(highByte & 0b00000001);
+        ui->dInCh1_1->setChecked(highByte & 0b00000010);
+        ui->dInCh1_2->setChecked(highByte & 0b00000100);
+        ui->dInCh1_3->setChecked(highByte & 0b00001000);
+        ui->dInCh1_4->setChecked(highByte & 0b00010000);
+        ui->dInCh1_5->setChecked(highByte & 0b00100000);
+        ui->dInCh1_6->setChecked(highByte & 0b01000000);
+        ui->dInCh1_7->setChecked(highByte & 0b10000000);
+
     }
 }
 
@@ -212,13 +249,7 @@ void MainWindow::on_aOutCh1Slider_valueChanged(int value)
     ui->aInCh1Progress->setValue(value);
 }
 
-void MainWindow::on_dOutCh1_toggled(bool checked)
-{
-    //int dOutCh1 = checked;
-    ui->dInCh1->setEnabled(1);
-    ui->dInCh1->setChecked(checked);
-    ui->dInCh1->setDisabled(1);
-}
+
 
 void MainWindow::on_skr_addline_button_clicked()
 {
@@ -241,4 +272,103 @@ void MainWindow::on_skr_start_button_clicked()
 void MainWindow::on_pushButtonRefresh_clicked()
 {
     list_COM_devices();
+}
+
+void MainWindow::on_dOutCh0_0_toggled(bool checked)
+{
+    digital_output_low_byte -= uint8_t(1*qPow(-1, checked));
+    qDebug() <<Qt::bin << digital_output_low_byte;
+    transmit("dw"+QString(digital_output_low_byte));
+}
+
+void MainWindow::on_dOutCh0_1_toggled(bool checked)
+{
+    digital_output_low_byte -= uint8_t(2*qPow(-1, checked));
+    qDebug() <<Qt::bin << digital_output_low_byte;
+
+}
+
+void MainWindow::on_dOutCh0_2_toggled(bool checked)
+{
+    digital_output_low_byte -= uint8_t(4*qPow(-1, checked));
+    qDebug() <<Qt::bin << digital_output_low_byte;
+
+}
+
+void MainWindow::on_dOutCh0_3_toggled(bool checked)
+{
+    digital_output_low_byte -= uint8_t(8*qPow(-1, checked));
+    qDebug() <<Qt::bin << digital_output_low_byte;
+
+}
+
+void MainWindow::on_dOutCh0_4_toggled(bool checked)
+{
+    digital_output_low_byte -= uint8_t(16*qPow(-1, checked));
+    qDebug() <<Qt::bin << digital_output_low_byte;
+
+}
+
+void MainWindow::on_dOutCh0_5_toggled(bool checked)
+{
+    digital_output_low_byte -= uint8_t(32*qPow(-1, checked));
+    qDebug() <<Qt::bin << digital_output_low_byte;
+}
+
+void MainWindow::on_dOutCh0_6_toggled(bool checked)
+{
+    digital_output_low_byte -= uint8_t(64*qPow(-1, checked));
+    qDebug() <<Qt::bin << digital_output_low_byte;
+}
+
+void MainWindow::on_dOutCh0_7_toggled(bool checked)
+{
+    digital_output_low_byte -= uint8_t(128*qPow(-1, checked));
+    qDebug() <<Qt::bin << digital_output_low_byte;
+}
+
+void MainWindow::on_dOutCh1_0_toggled(bool checked)
+{
+    digital_output_high_byte -= uint8_t(1*qPow(-1, checked));
+    qDebug() <<Qt::bin << digital_output_high_byte;
+}
+
+void MainWindow::on_dOutCh1_1_toggled(bool checked)
+{
+    digital_output_high_byte -= uint8_t(2*qPow(-1, checked));
+    qDebug() <<Qt::bin << digital_output_high_byte;
+}
+
+void MainWindow::on_dOutCh1_2_toggled(bool checked)
+{
+    digital_output_high_byte -= uint8_t(4*qPow(-1, checked));
+    qDebug() <<Qt::bin << digital_output_high_byte;
+}
+
+void MainWindow::on_dOutCh1_3_toggled(bool checked)
+{
+    digital_output_high_byte -= uint8_t(8*qPow(-1, checked));
+    qDebug() <<Qt::bin << digital_output_high_byte;
+}
+
+void MainWindow::on_dOutCh1_4_toggled(bool checked)
+{
+    digital_output_high_byte -= uint8_t(16*qPow(-1, checked));
+    qDebug() <<Qt::bin << digital_output_high_byte;
+}
+
+void MainWindow::on_dOutCh1_5_toggled(bool checked)
+{
+    digital_output_high_byte -= uint8_t(32*qPow(-1, checked));
+    qDebug() <<Qt::bin << digital_output_high_byte;
+}
+void MainWindow::on_dOutCh1_6_toggled(bool checked)
+{
+    digital_output_high_byte -= uint8_t(64*qPow(-1, checked));
+    qDebug() <<Qt::bin << digital_output_high_byte;
+}
+void MainWindow::on_dOutCh1_7_toggled(bool checked)
+{
+    digital_output_high_byte -= uint8_t(128*qPow(-1, checked));
+    qDebug() <<Qt::bin << digital_output_high_byte;
 }

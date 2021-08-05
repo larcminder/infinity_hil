@@ -31,7 +31,21 @@ int analyzeCommand(uint8_t command[]) {
 			break;
 
 		case 'd':	//Digital
-			digital(command);
+
+			switch(command[2]) {
+					case 'w':	//write
+						//Write command[4] to Channel command[3]
+						transmit("pWrite to a Digital Pin");
+						break;
+
+					case 'r':	//read
+
+						transmit("pRead from a Digital Pin");
+						break;
+
+					default:
+						transmit("pInvalid Command Identifier");
+				}
 			break;
 
 		case 't':	//Timer
@@ -62,6 +76,7 @@ int analyzeCommand(uint8_t command[]) {
 	return retValDelay;
 }
 
+
 void digital(uint8_t command[]) {
 	switch(command[2]) {
 		case 'w':	//write
@@ -70,6 +85,7 @@ void digital(uint8_t command[]) {
 			break;
 
 		case 'r':	//read
+
 			transmit("pRead from a Digital Pin");
 			break;
 
